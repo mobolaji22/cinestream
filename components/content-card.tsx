@@ -1,15 +1,15 @@
 "use client"
 
 import type React from "react"
-
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Play, Plus, Film, Tv } from "lucide-react"
+import { Play, Plus, Film, Tv, Check, Loader2 } from "lucide-react" // Add Loader2
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { useState } from "react"
 import { toast } from "@/hooks/use-toast"
+import { addToWatchlist, removeFromWatchlist, isInWatchlist } from "@/lib/api"
 
 interface ContentCardProps {
   id: string
@@ -41,20 +41,87 @@ export function ContentCard({
   }
 
   const [isAddingToWatchlist, setIsAddingToWatchlist] = useState(false)
+  const [isRemovingFromWatchlist, setIsRemovingFromWatchlist] = useState(false)
+  const [isWatchlisted, setIsWatchlisted] = useState(false)
 
-  const handleAddToWatchlist = (e: React.MouseEvent) => {
+  // Check if the content is already in the watchlist
+  useEffect(() => {
+    const checkWatchlist = async () => {
+      const inWatchlist = await isInWatchlist(id)
+      setIsWatchlisted(inWatchlist)
+    }
+    
+    checkWatchlist()
+  }, [id])
+
+  // In the handleAddToWatchlist function
+  const handleAddToWatchlist = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setIsAddingToWatchlist(true)
-
-    // Simulate API call
-    setTimeout(() => {
-      setIsAddingToWatchlist(false)
+  
+    try {
+      // Call the API to add to watchlist
+      const success = await addToWatchlist(id, type)
+      
+      if (success) {
+        setIsWatchlisted(true) // Update local state immediately
+        toast({
+          title: "Added to watchlist",
+          description: `${title} has been added to your watchlist.`,
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to add to watchlist. Please try again.",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error("Error adding to watchlist:", error)
       toast({
-        title: "Added to watchlist",
-        description: `${title} has been added to your watchlist.`,
+        title: "Error",
+        description: "Failed to add to watchlist. Please try again.",
+        variant: "destructive"
       })
-    }, 500)
+    } finally {
+      setIsAddingToWatchlist(false)
+    }
+  }
+
+  // Handle removing from watchlist
+  const handleRemoveFromWatchlist = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsRemovingFromWatchlist(true)
+  
+    try {
+      // Call the API to remove from watchlist
+      const success = await removeFromWatchlist(id)
+      
+      if (success) {
+        setIsWatchlisted(false)
+        toast({
+          title: "Removed from watchlist",
+          description: `${title} has been removed from your watchlist.`,
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to remove from watchlist. Please try again.",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error("Error removing from watchlist:", error)
+      toast({
+        title: "Error",
+        description: "Failed to remove from watchlist. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsRemovingFromWatchlist(false)
+    }
   }
 
   const contentPath = type === "movie" ? `/movies/${id}` : `/series/${id}`
@@ -90,15 +157,38 @@ export function ContentCard({
               <Button size="sm" className="rounded-full">
                 <Play className="h-4 w-4 mr-1" /> Play
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="rounded-full"
-                onClick={handleAddToWatchlist}
-                disabled={isAddingToWatchlist}
-              >
-                <Plus className="h-4 w-4 mr-1" /> Watchlist
-              </Button>
+              
+              {isWatchlisted ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="rounded-full"
+                  onClick={handleRemoveFromWatchlist}
+                  disabled={isRemovingFromWatchlist}
+                >
+                  {isRemovingFromWatchlist ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4 mr-1" />
+                  )}
+                  In Watchlist
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={handleAddToWatchlist}
+                  disabled={isAddingToWatchlist}
+                >
+                  {isAddingToWatchlist ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4 mr-1" />
+                  )}
+                  Watchlist
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -120,7 +210,12 @@ export function ContentCard({
             )}
             {type === "series" && seasons && (
               <span className="text-xs text-muted-foreground">
-                {seasons} {seasons === 1 ? "Season" : "Seasons"}
+                {/* Check if seasons is a number or an array and handle accordingly */}
+                {typeof seasons === 'number' 
+                  ? `${seasons} ${seasons === 1 ? "Season" : "Seasons"}`
+                  : Array.isArray(seasons) 
+                    ? `${seasons.length} ${seasons.length === 1 ? "Season" : "Seasons"}`
+                    : "Seasons"}
               </span>
             )}
           </div>

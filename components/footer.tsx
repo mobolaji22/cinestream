@@ -28,8 +28,8 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/watchlist" className="text-sm text-muted-foreground hover:text-foreground">
-                  Watchlist
+                <Link href="/series" className="text-sm text-muted-foreground hover:text-foreground">
+                 Series
                 </Link>
               </li>
             </ul>

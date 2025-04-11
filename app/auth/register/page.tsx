@@ -1,28 +1,109 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
-import { Apple } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Apple, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { useAuth } from "@/contexts/auth-context"
+import { toast } from "@/hooks/use-toast"
 
 export default function RegisterPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirect = searchParams.get("redirect") || "/"
+  const { register, isAuthenticated } = useAuth()
+  
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [agreeTerms, setAgreeTerms] = useState(false)
+  const [isRegistering, setIsRegistering] = useState(false)
+  const [errors, setErrors] = useState<{name?: string; email?: string; password?: string}>({})
 
-  const handleRegister = (e: React.FormEvent) => {
+  useEffect(() => {
+    // If already authenticated, redirect
+    if (isAuthenticated) {
+      router.push(redirect)
+    }
+  }, [isAuthenticated, redirect, router])
+
+  const validateForm = () => {
+    const newErrors: {name?: string; email?: string; password?: string} = {}
+    
+    if (!name) {
+      newErrors.name = "Name is required"
+    } else if (name.length < 2) {
+      newErrors.name = "Name must be at least 2 characters"
+    }
+    
+    if (!email) {
+      newErrors.email = "Email is required"
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = "Please enter a valid email"
+    }
+    
+    if (!password) {
+      newErrors.password = "Password is required"
+    } else if (password.length < 8) {
+      newErrors.password = "Password must be at least 8 characters"
+    }
+    
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
-    // In a real app, you would handle registration here
-    router.push("/")
+    
+    if (!validateForm()) {
+      console.log("Form validation failed:", errors)
+      return
+    }
+    
+    if (!agreeTerms) {
+      toast({
+        title: "Terms required",
+        description: "Please agree to the terms and conditions to continue.",
+        variant: "destructive"
+      })
+      return
+    }
+    
+    setIsRegistering(true)
+    
+    try {
+      console.log("Attempting to register with:", { name, email, password: "***" })
+      const success = await register(name, email, password)
+      
+      if (success) {
+        toast({
+          title: "Registration successful",
+          description: "Welcome to CineStream!",
+        })
+        router.push(redirect)
+      } else {
+        toast({
+          title: "Registration failed",
+          description: "This email may already be registered. Please try again.",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error("Registration error:", error)
+      toast({
+        title: "Registration failed",
+        description: "An error occurred. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsRegistering(false)
+    }
   }
 
   return (

@@ -5,16 +5,19 @@ import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Search, Menu, X, Film, Tv } from "lucide-react"
+import { Search, Menu, X, Film, Tv, User, Bookmark, Settings, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useMobile } from "@/hooks/use-mobile"
+import { useAuth } from "@/contexts/auth-context"
 
 export function Navbar() {
   const pathname = usePathname()
   const isMobile = useMobile()
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const { user, isAuthenticated, logout } = useAuth() // Actually use the auth context
 
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
@@ -69,12 +72,21 @@ export function Navbar() {
                       <span>TV Series</span>
                     </div>
                   </Link>
-                  <Link
-                    href="/watchlist"
-                    className={`text-lg font-medium ${pathname === "/watchlist" ? "text-primary" : "text-foreground"}`}
-                  >
-                    Watchlist
-                  </Link>
+                  {isAuthenticated ? (
+                    <Link
+                      href="/profile"
+                      className={`text-lg font-medium ${pathname === "/profile" ? "text-primary" : "text-foreground"}`}
+                    >
+                      My Profile
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/auth/login"
+                      className={`text-lg font-medium ${pathname === "/auth/login" ? "text-primary" : "text-foreground"}`}
+                    >
+                      Sign In
+                    </Link>
+                  )}
                 </div>
               </SheetContent>
             </Sheet>
@@ -106,12 +118,6 @@ export function Navbar() {
                   <Tv className="h-4 w-4" />
                   <span>TV Series</span>
                 </div>
-              </Link>
-              <Link
-                href="/watchlist"
-                className={`text-sm font-medium ${pathname === "/watchlist" ? "text-primary" : "text-foreground"}`}
-              >
-                Watchlist
               </Link>
             </nav>
           )}
@@ -146,12 +152,61 @@ export function Navbar() {
             </Button>
           )}
 
-          <Link href="/profile">
-            <Avatar>
-              <AvatarImage src="/placeholder.svg?height=32&width=32" alt="User" />
-              <AvatarFallback>U</AvatarFallback>
-            </Avatar>
-          </Link>
+          {isAuthenticated ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <Avatar>
+                    <AvatarImage src={user?.avatar || "/placeholder.svg?height=32&width=32"} alt={user?.name || "User"} />
+                    <AvatarFallback>{user?.name?.charAt(0) || "U"}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{user?.name}</p>
+                    <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile">
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Profile</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    {/* <Link href="/profile">
+                      <Bookmark className="mr-2 h-4 w-4" />
+                      <span>Watchlist</span>
+                    </Link> */}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings">
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Settings</span>
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={logout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Link href="/auth/login">
+                <Button variant="ghost" size="sm">Sign In</Button>
+              </Link>
+              <Link href="/auth/register">
+                <Button size="sm">Sign Up</Button>
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </header>

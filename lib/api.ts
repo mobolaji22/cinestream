@@ -1,5 +1,51 @@
 import axios from 'axios';
 
+// Define content types
+export interface MovieData {
+  id: string;
+  title: string;
+  posterUrl: string;
+  backdropUrl: string;
+  year: number | string;
+  rating: string;
+  genres: string[];
+  description: string;
+  duration?: string;
+  type: 'movie';
+  director?: string;
+  cast?: string[];
+  similarMovies?: MovieData[];
+}
+
+export interface Episode {
+  number: number;
+  title: string;
+  description: string;
+  thumbnailUrl: string;
+  duration: string;
+}
+
+export interface Season {
+  number: number;
+  episodes: Episode[];
+}
+
+export interface SeriesData {
+  id: string;
+  title: string;
+  posterUrl: string;
+  backdropUrl: string;
+  year: number | string;
+  rating: string;
+  genres: string[];
+  description: string;
+  seasons: Season[] | number; // Can be either a number or an array of Season objects
+  type: 'series';
+  creators?: string[];
+  cast?: string[];
+  similarSeries?: SeriesData[];
+}
+
 // Create an axios instance with default config for TMDB
 const tmdbApi = axios.create({
   baseURL: 'https://api.themoviedb.org/3',
@@ -12,7 +58,7 @@ const tmdbApi = axios.create({
 });
 
 // Helper function to format movie data
-const formatMovieData = (movie: any) => ({
+const formatMovieData = (movie: any): MovieData => ({
   id: movie.id.toString(),
   title: movie.title,
   posterUrl: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : '/placeholder.svg',
@@ -26,7 +72,7 @@ const formatMovieData = (movie: any) => ({
 });
 
 // Helper function to format TV series data
-const formatSeriesData = (series: any) => ({
+const formatSeriesData = (series: any): SeriesData => ({
   id: series.id.toString(),
   title: series.name,
   posterUrl: series.poster_path ? `https://image.tmdb.org/t/p/w500${series.poster_path}` : '/placeholder.svg',
@@ -226,6 +272,197 @@ export const searchContent = async (query: string) => {
     console.error('Error searching content:', error);
     // Return empty array instead of throwing
     return [];
+  }
+};
+
+// Add these functions to your api.ts file
+
+// Replace the getUserProfile function with this:
+export const getUserProfile = async () => {
+  try {
+    // In a real app with a backend, you would make an API call here
+    // For now, we'll get the user from localStorage
+    const storedUser = localStorage.getItem("user")
+    if (!storedUser) {
+      throw new Error("User not found")
+    }
+    
+    return JSON.parse(storedUser)
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    return null;
+  }
+};
+
+export const getUserWatchlist = async (): Promise<(MovieData | SeriesData)[]> => {
+  try {
+    // Get the current user
+    const user = localStorage.getItem("user");
+    if (!user) {
+      return [];
+    }
+    
+    const userId = JSON.parse(user).id;
+    
+    // Get the user's watchlist from localStorage
+    const watchlistData = localStorage.getItem(`watchlist_${userId}`);
+    
+    // If no watchlist exists yet, return empty array
+    if (!watchlistData) {
+      // Create an empty watchlist
+      localStorage.setItem(`watchlist_${userId}`, JSON.stringify([]));
+      return [];
+    }
+    
+    // Parse the watchlist data
+    const watchlistIds = JSON.parse(watchlistData);
+    
+    // If watchlist is empty, return empty array
+    if (!watchlistIds || watchlistIds.length === 0) {
+      return [];
+    }
+    
+    // Fetch the details for each item in the watchlist
+    const watchlistItems: (MovieData | SeriesData)[] = [];
+    for (const item of watchlistIds) {
+      try {
+        if (item.type === 'movie') {
+          const movie = await getMovieDetails(item.id);
+          // Ensure the type is explicitly set to 'movie'
+          if (movie) {
+            const typedMovie: MovieData = {
+              ...movie,
+              type: 'movie' as const
+            };
+            watchlistItems.push(typedMovie);
+          }
+        } else if (item.type === 'series') {
+          const series = await getSeriesDetails(item.id);
+          // Ensure the type is explicitly set to 'series'
+          if (series) {
+            const typedSeries: SeriesData = {
+              ...series,
+              type: 'series' as const
+            };
+            watchlistItems.push(typedSeries);
+          }
+        }
+      } catch (error) {
+        console.error(`Error fetching details for ${item.type} ${item.id}:`, error);
+      }
+    }
+    
+    return watchlistItems;
+  } catch (error) {
+    console.error('Error fetching user watchlist:', error);
+    return [];
+  }
+};
+
+export const addToWatchlist = async (contentId: string, contentType: 'movie' | 'series') => {
+  try {
+    // Get the current user
+    const user = localStorage.getItem("user");
+    if (!user) {
+      console.error("User not logged in");
+      return false;
+    }
+    
+    const userId = JSON.parse(user).id;
+    
+    // Get the current watchlist
+    const watchlistData = localStorage.getItem(`watchlist_${userId}`);
+    let watchlist = watchlistData ? JSON.parse(watchlistData) : [];
+    
+    // Check if the item is already in the watchlist
+    if (!watchlist.some((item: any) => item.id === contentId)) {
+      // Add the item to the watchlist
+      watchlist.push({ id: contentId, type: contentType, addedAt: new Date().toISOString() });
+      
+      // Save the updated watchlist
+      localStorage.setItem(`watchlist_${userId}`, JSON.stringify(watchlist));
+      console.log(`Added ${contentType} ${contentId} to watchlist`);
+      
+      // Dispatch storage event to notify other components
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: `watchlist_${userId}`,
+        newValue: JSON.stringify(watchlist),
+        url: window.location.href
+      }));
+    } else {
+      console.log(`${contentType} ${contentId} is already in watchlist`);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error adding to watchlist:', error);
+    return false;
+  }
+};
+
+export const removeFromWatchlist = async (contentId: string) => {
+  try {
+    // Get the current user
+    const user = localStorage.getItem("user");
+    if (!user) {
+      console.error("User not logged in");
+      return false;
+    }
+    
+    const userId = JSON.parse(user).id;
+    
+    // Get the current watchlist
+    const watchlistData = localStorage.getItem(`watchlist_${userId}`);
+    if (!watchlistData) {
+      return true; // Nothing to remove
+    }
+    
+    let watchlist = JSON.parse(watchlistData);
+    
+    // Remove the item from the watchlist
+    watchlist = watchlist.filter((item: any) => item.id !== contentId);
+    
+    // Save the updated watchlist
+    localStorage.setItem(`watchlist_${userId}`, JSON.stringify(watchlist));
+    console.log(`Removed ${contentId} from watchlist`);
+    
+    // Dispatch storage event to notify other components
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: `watchlist_${userId}`,
+      newValue: JSON.stringify(watchlist),
+      url: window.location.href
+    }));
+    
+    return true;
+  } catch (error) {
+    console.error('Error removing from watchlist:', error);
+    return false;
+  }
+};
+
+export const isInWatchlist = async (contentId: string): Promise<boolean> => {
+  try {
+    // Get the current user
+    const user = localStorage.getItem("user");
+    if (!user) {
+      return false;
+    }
+    
+    const userId = JSON.parse(user).id;
+    
+    // Get the current watchlist
+    const watchlistData = localStorage.getItem(`watchlist_${userId}`);
+    if (!watchlistData) {
+      return false;
+    }
+    
+    const watchlist = JSON.parse(watchlistData);
+    
+    // Check if the item is in the watchlist
+    return watchlist.some((item: any) => item.id === contentId);
+  } catch (error) {
+    console.error('Error checking watchlist:', error);
+    return false;
   }
 };
 

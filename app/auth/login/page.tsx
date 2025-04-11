@@ -1,28 +1,111 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Apple, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useAuth } from "@/contexts/auth-context"
+import { toast } from "@/hooks/use-toast"
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirect = searchParams.get("redirect") || "/"
+  const { login, isAuthenticated } = useAuth()
+  
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
+  const [isLoggingIn, setIsLoggingIn] = useState(false)
+  const [errors, setErrors] = useState<{email?: string; password?: string}>({})
 
-  const handleLogin = (e: React.FormEvent) => {
+  useEffect(() => {
+    // If already authenticated, redirect
+    if (isAuthenticated) {
+      router.push(redirect)
+    }
+  }, [isAuthenticated, redirect, router])
+
+  // Add this new useEffect
+  useEffect(() => {
+    // Check if we have a remembered email
+    const rememberedEmail = localStorage.getItem("rememberEmail")
+    if (rememberedEmail) {
+      setEmail(rememberedEmail)
+      setRememberMe(true)
+    }
+  }, [])
+
+  const validateForm = () => {
+    const newErrors: {email?: string; password?: string} = {}
+    
+    if (!email) {
+      newErrors.email = "Email is required"
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = "Please enter a valid email"
+    }
+    
+    if (!password) {
+      newErrors.password = "Password is required"
+    } else if (password.length < 8) {
+      newErrors.password = "Password must be at least 8 characters"
+    }
+    
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    // In a real app, you would handle authentication here
-    router.push("/")
+    
+    if (!validateForm()) {
+      return
+    }
+    
+    setIsLoggingIn(true)
+    
+    try {
+      console.log("Attempting to login with:", email)
+      const success = await login(email, password)
+      
+      if (success) {
+        toast({
+          title: "Login successful",
+          description: "Welcome back to CineStream!",
+        })
+        
+        // Store remember me preference if checked
+        if (rememberMe) {
+          localStorage.setItem("rememberEmail", email)
+        } else {
+          localStorage.removeItem("rememberEmail")
+        }
+        
+        router.push(redirect)
+      } else {
+        toast({
+          title: "Login failed",
+          description: "Invalid email or password. Please try again.",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error("Login error:", error)
+      toast({
+        title: "Login failed",
+        description: "An error occurred. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoggingIn(false)
+    }
   }
 
   return (
@@ -72,7 +155,11 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    className={errors.email ? "border-destructive" : ""}
                   />
+                  {errors.email && (
+                    <p className="text-sm text-destructive">{errors.email}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -89,7 +176,11 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    className={errors.password ? "border-destructive" : ""}
                   />
+                  {errors.password && (
+                    <p className="text-sm text-destructive">{errors.password}</p>
+                  )}
                 </div>
 
                 <div className="flex items-center space-x-2">
@@ -103,8 +194,8 @@ export default function LoginPage() {
                   </Label>
                 </div>
 
-                <Button type="submit" className="w-full">
-                  Sign In
+                <Button type="submit" className="w-full" disabled={isLoggingIn}>
+                  {isLoggingIn ? "Signing in..." : "Sign In"}
                 </Button>
               </form>
             </TabsContent>
