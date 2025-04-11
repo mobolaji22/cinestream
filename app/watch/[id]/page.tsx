@@ -1,11 +1,11 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { ArrowLeft, Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { movieDetails, getContentById } from "@/lib/mock-data"
+import { getMovieDetails } from "@/lib/api"
 
 interface VideoPlayerPageProps {
   params: {
@@ -13,9 +13,14 @@ interface VideoPlayerPageProps {
   }
 }
 
-export default function VideoPlayerPage({ params }: VideoPlayerPageProps) {
+export default function VideoPlayerPage() {
   const router = useRouter()
+  // Use the useParams hook instead of accessing params directly
+  const params = useParams()
+  const id = params.id as string
+  
   const videoRef = useRef<HTMLVideoElement>(null)
+  const [movie, setMovie] = useState<any>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -23,14 +28,26 @@ export default function VideoPlayerPage({ params }: VideoPlayerPageProps) {
   const [duration, setDuration] = useState(0)
   const [showControls, setShowControls] = useState(true)
   const [volume, setVolume] = useState(1)
+  const [isLoading, setIsLoading] = useState(true)
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Get content details based on ID
-  const content = params.id === movieDetails.id ? movieDetails : getContentById(params.id) || movieDetails
+  useEffect(() => {
+    const fetchMovieData = async () => {
+      try {
+        const movieData = await getMovieDetails(id)
+        setMovie(movieData)
+        setIsLoading(false)
+      } catch (error) {
+        console.error("Error fetching movie data:", error)
+        setIsLoading(false)
+      }
+    }
+    
+    fetchMovieData()
+  }, [id])
 
   // Get video URL with fallback
-  const videoUrl =
-    content.videoUrl || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+  const videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
 
   useEffect(() => {
     const video = videoRef.current
@@ -159,11 +176,15 @@ export default function VideoPlayerPage({ params }: VideoPlayerPageProps) {
 
   // Handle back navigation based on content type
   const handleBack = () => {
-    if (content.type === "movie") {
-      router.push(`/movies/${content.id}`)
-    } else {
-      router.back()
-    }
+    router.push(`/movies/${id}`)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-black">
+        <div className="animate-pulse text-2xl text-white">Loading movie player...</div>
+      </div>
+    )
   }
 
   return (
@@ -171,7 +192,7 @@ export default function VideoPlayerPage({ params }: VideoPlayerPageProps) {
       <video
         ref={videoRef}
         className="w-full h-full object-contain"
-        poster={content.backdropUrl}
+        poster={movie?.backdropUrl}
         onClick={handlePlayPause}
         onError={(e) => console.error("Video error:", e)}
       >
@@ -186,7 +207,7 @@ export default function VideoPlayerPage({ params }: VideoPlayerPageProps) {
               <ArrowLeft className="h-6 w-6" />
               <span className="sr-only">Back</span>
             </Button>
-            <h1 className="text-xl font-medium text-white">{content.title}</h1>
+            <h1 className="text-xl font-medium text-white">{movie?.title || "Movie"}</h1>
           </div>
 
           <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">

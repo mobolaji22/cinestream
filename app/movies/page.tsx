@@ -1,19 +1,68 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { ContentCard } from "@/components/content-card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { recommendedMovies, trendingMovies, newReleases } from "@/lib/mock-data"
+// Replace mock data import with API import
+import { getPopularMovies, getTopRatedMovies } from "@/lib/api"
 
 export default function MoviesPage() {
-  // Combine all movies
-  const allMovies = [...recommendedMovies, ...trendingMovies, ...newReleases]
+  const [movies, setMovies] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState("all")
 
-  // Remove duplicates
-  const uniqueMovies = allMovies.filter((movie, index, self) => index === self.findIndex((m) => m.id === movie.id))
+  useEffect(() => {
+    const fetchMovies = async () => {
+      try {
+        setIsLoading(true)
+        
+        // Fetch data in parallel
+        const [popularMovies, topRatedMovies] = await Promise.all([
+          getPopularMovies(),
+          getTopRatedMovies()
+        ])
+        
+        // Combine all movies
+        const allMovies = [...popularMovies, ...topRatedMovies]
+        
+        // Remove duplicates
+        const uniqueMovies = allMovies.filter((movie, index, self) => 
+          index === self.findIndex((m) => m.id === movie.id)
+        )
+        
+        setMovies(uniqueMovies)
+        setIsLoading(false)
+      } catch (error) {
+        console.error("Error fetching movies:", error)
+        setIsLoading(false)
+      }
+    }
+    
+    fetchMovies()
+  }, [])
 
   // Get unique genres
-  const allGenres = uniqueMovies.flatMap((movie) => movie.genres)
+  const allGenres = movies.flatMap((movie) => movie.genres)
   const uniqueGenres = [...new Set(allGenres)].sort()
+
+  // Filter movies by genre
+  const getFilteredMovies = (genre: string) => {
+    if (genre === "all") return movies
+    return movies.filter(movie => movie.genres.includes(genre))
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="animate-pulse text-2xl">Loading movies...</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -22,7 +71,7 @@ export default function MoviesPage() {
         <div className="max-w-6xl mx-auto space-y-6">
           <h1 className="text-3xl font-bold">Movies</h1>
 
-          <Tabs defaultValue="all" className="w-full">
+          <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
             <div className="overflow-x-auto pb-2">
               <TabsList className="w-fit">
                 <TabsTrigger value="all">All</TabsTrigger>
@@ -34,9 +83,10 @@ export default function MoviesPage() {
               </TabsList>
             </div>
 
-            <TabsContent value="all" className="pt-4">
+            {/* We'll render content based on active tab */}
+            <div className="pt-4">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {uniqueMovies.map((movie) => (
+                {getFilteredMovies(activeTab).map((movie) => (
                   <ContentCard
                     key={movie.id}
                     id={movie.id}
@@ -50,29 +100,7 @@ export default function MoviesPage() {
                   />
                 ))}
               </div>
-            </TabsContent>
-
-            {uniqueGenres.map((genre) => (
-              <TabsContent key={genre} value={genre.toLowerCase()} className="pt-4">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  {uniqueMovies
-                    .filter((movie) => movie.genres.includes(genre))
-                    .map((movie) => (
-                      <ContentCard
-                        key={movie.id}
-                        id={movie.id}
-                        title={movie.title}
-                        posterUrl={movie.posterUrl}
-                        year={movie.year}
-                        rating={movie.rating}
-                        genres={movie.genres}
-                        type="movie"
-                        size="sm"
-                      />
-                    ))}
-                </div>
-              </TabsContent>
-            ))}
+            </div>
           </Tabs>
         </div>
       </main>

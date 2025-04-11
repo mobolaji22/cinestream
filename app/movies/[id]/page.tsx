@@ -1,3 +1,5 @@
+'use client'
+
 import Image from "next/image"
 import Link from "next/link"
 import { Play, Plus, Star, Clock, Calendar, Film } from "lucide-react"
@@ -7,7 +9,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ContentCarousel } from "@/components/content-carousel"
-import { movieDetails, getContentById } from "@/lib/mock-data"
+import { getMovieDetails } from "@/lib/api"
+import { useState, useEffect } from "react"
+import { useParams } from "next/navigation"
 
 interface MovieDetailPageProps {
   params: {
@@ -15,18 +19,48 @@ interface MovieDetailPageProps {
   }
 }
 
-export default function MovieDetailPage({ params }: MovieDetailPageProps) {
-  // In a real app, you would fetch the movie details based on the ID
-  const movie = params.id === movieDetails.id ? movieDetails : getContentById(params.id) || movieDetails
+export default function MovieDetailPage() {
+  // Use the useParams hook instead of accessing params directly
+  const params = useParams()
+  const id = params.id as string
+  
+  const [movie, setMovie] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchMovieDetails = async () => {
+      try {
+        const movieData = await getMovieDetails(id)
+        setMovie(movieData)
+        setIsLoading(false)
+      } catch (error) {
+        console.error("Error fetching movie details:", error)
+        setIsLoading(false)
+      }
+    }
+
+    fetchMovieDetails()
+  }, [id])
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="animate-pulse text-2xl">Loading movie details...</div>
+        </div>
+      </div>
+    )
+  }
 
   // Ensure we have all required properties with defaults
   const movieWithDefaults = {
     ...movie,
-    genres: movie.genres || [],
-    cast: movie.cast || [],
-    director: movie.director || "Unknown",
-    description: movie.description || "No description available.",
-    similarMovies: movie.similarMovies || [],
+    genres: movie?.genres || [],
+    cast: movie?.cast || [],
+    director: movie?.director || "Unknown",
+    description: movie?.description || "No description available.",
+    similarMovies: movie?.similarMovies || [],
   }
 
   return (
@@ -90,7 +124,7 @@ export default function MovieDetailPage({ params }: MovieDetailPageProps) {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {movieWithDefaults.genres.map((genre) => (
+                {movieWithDefaults.genres.map((genre: string) => (
                   <Badge key={genre} variant="secondary">
                     {genre}
                   </Badge>
@@ -130,7 +164,7 @@ export default function MovieDetailPage({ params }: MovieDetailPageProps) {
                 <TabsContent value="cast" className="pt-4">
                   {movieWithDefaults.cast.length > 0 ? (
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {movieWithDefaults.cast.map((actor) => (
+                      {movieWithDefaults.cast.map((actor: string) => (
                         <div key={actor} className="flex items-center gap-3">
                           <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
                             <span className="text-lg font-medium">{actor.charAt(0)}</span>

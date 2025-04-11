@@ -1,3 +1,5 @@
+'use client'
+
 import Image from "next/image"
 import Link from "next/link"
 import { Play, Plus, Star, Calendar, Tv } from "lucide-react"
@@ -7,8 +9,10 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ContentCarousel } from "@/components/content-carousel"
-import { seriesDetails, getContentById } from "@/lib/mock-data"
+import { getSeriesDetails } from "@/lib/api"
 import { Card, CardContent } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { useParams } from "next/navigation"
 
 interface SeriesDetailPageProps {
   params: {
@@ -16,19 +20,49 @@ interface SeriesDetailPageProps {
   }
 }
 
-export default function SeriesDetailPage({ params }: SeriesDetailPageProps) {
-  // In a real app, you would fetch the series details based on the ID
-  const series = params.id === seriesDetails.id ? seriesDetails : getContentById(params.id) || seriesDetails
+export default function SeriesDetailPage() {
+  // Use the useParams hook instead of accessing params directly
+  const params = useParams()
+  const id = params.id as string
+  
+  const [series, setSeries] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchSeriesDetails = async () => {
+      try {
+        const seriesData = await getSeriesDetails(id)
+        setSeries(seriesData)
+        setIsLoading(false)
+      } catch (error) {
+        console.error("Error fetching series details:", error)
+        setIsLoading(false)
+      }
+    }
+
+    fetchSeriesDetails()
+  }, [id])
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="animate-pulse text-2xl">Loading series details...</div>
+        </div>
+      </div>
+    )
+  }
 
   // Ensure we have all required properties with defaults
   const seriesWithDefaults = {
     ...series,
-    genres: series.genres || [],
-    cast: series.cast || [],
-    creators: series.creators || ["Unknown"],
-    description: series.description || "No description available.",
-    seasons: series.seasons || [],
-    similarSeries: series.similarSeries || [],
+    genres: series?.genres || [],
+    cast: series?.cast || [],
+    creators: series?.creators || ["Unknown"],
+    description: series?.description || "No description available.",
+    seasons: series?.seasons || [],
+    similarSeries: series?.similarSeries || [],
   }
 
   return (
@@ -100,7 +134,7 @@ export default function SeriesDetailPage({ params }: SeriesDetailPageProps) {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {seriesWithDefaults.genres.map((genre) => (
+                {seriesWithDefaults.genres.map((genre: string) => (
                   <Badge key={genre} variant="secondary">
                     {genre}
                   </Badge>
@@ -143,16 +177,16 @@ export default function SeriesDetailPage({ params }: SeriesDetailPageProps) {
                   {Array.isArray(seriesWithDefaults.seasons) && seriesWithDefaults.seasons.length > 0 ? (
                     <Tabs defaultValue="1" className="w-full">
                       <TabsList className="mb-4">
-                        {seriesWithDefaults.seasons.map((season) => (
+                        {seriesWithDefaults.seasons.map((season: { number: number }) => (
                           <TabsTrigger key={season.number} value={season.number.toString()}>
                             Season {season.number}
                           </TabsTrigger>
                         ))}
                       </TabsList>
 
-                      {seriesWithDefaults.seasons.map((season) => (
+                      {seriesWithDefaults.seasons.map((season: { number: number, episodes: any[] }) => (
                         <TabsContent key={season.number} value={season.number.toString()} className="space-y-4">
-                          {season.episodes.map((episode) => (
+                          {season.episodes.map((episode: { number: number, title: string, description: string, thumbnailUrl: string, duration: string }) => (
                             <Link
                               key={episode.number}
                               href={`/watch/${seriesWithDefaults.id}/s${season.number}/e${episode.number}`}
@@ -194,7 +228,7 @@ export default function SeriesDetailPage({ params }: SeriesDetailPageProps) {
                 <TabsContent value="cast" className="pt-4">
                   {seriesWithDefaults.cast && seriesWithDefaults.cast.length > 0 ? (
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {seriesWithDefaults.cast.map((actor) => (
+                      {seriesWithDefaults.cast.map((actor: string) => (
                         <div key={actor} className="flex items-center gap-3">
                           <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
                             <span className="text-lg font-medium">{actor.charAt(0)}</span>

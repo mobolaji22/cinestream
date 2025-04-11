@@ -1,47 +1,80 @@
 "use client"
 
+import { useState, useEffect } from "react"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { HeroBanner } from "@/components/hero-banner"
 import { ContentCarousel } from "@/components/content-carousel"
-import {
-  featuredMovie,
-  featuredSeries,
-  recommendedMovies,
-  recommendedSeries,
-  trendingMovies,
-  trendingSeries,
-  newReleases,
-} from "@/lib/mock-data"
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
-import { useState, useEffect } from "react"
+import { getPopularMovies, getTopRatedMovies, getPopularSeries } from "@/lib/api"
 
 export default function HomePage() {
-  // Randomly choose between featuring a movie or series
-  const [featured, setFeatured] = useState(featuredMovie)
+  const [featuredContent, setFeaturedContent] = useState<any>(null)
+  const [popularMovies, setPopularMovies] = useState<any[]>([])
+  const [topRatedMovies, setTopRatedMovies] = useState<any[]>([])
+  const [popularSeries, setPopularSeries] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // In a real app, this would be based on user preferences or viewing history
-    const random = Math.random()
-    setFeatured(random > 0.5 ? featuredMovie : featuredSeries)
+    const fetchData = async () => {
+      try {
+        setIsLoading(true)
+        
+        // Fetch data in parallel
+        const [movies, topMovies, series] = await Promise.all([
+          getPopularMovies(),
+          getTopRatedMovies(),
+          getPopularSeries()
+        ])
+        
+        setPopularMovies(movies)
+        setTopRatedMovies(topMovies)
+        setPopularSeries(series)
+        
+        // Set a featured content randomly
+        const allContent = [...movies, ...series]
+        const randomIndex = Math.floor(Math.random() * allContent.length)
+        setFeaturedContent(allContent[randomIndex])
+        
+        setIsLoading(false)
+      } catch (error) {
+        console.error("Error fetching data:", error)
+        setIsLoading(false)
+      }
+    }
+    
+    fetchData()
   }, [])
+
+  if (isLoading || !featuredContent) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center">
+        <div className="animate-pulse text-2xl">Loading amazing content...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
       <main className="flex-1">
-        <HeroBanner content={featured} />
+        <HeroBanner content={featuredContent} />
 
         <div className="container px-4 py-8 space-y-10">
           <ContentCarousel
-            title="Recommended for You"
-            content={[...recommendedMovies, ...recommendedSeries].slice(0, 10)}
+            title="Popular Movies"
+            content={popularMovies.slice(0, 10)}
           />
-          <ContentCarousel title="Trending Movies" content={trendingMovies} />
-          <ContentCarousel title="Popular Series" content={recommendedSeries} />
-          <ContentCarousel title="Trending Series" content={trendingSeries} />
-          <ContentCarousel title="New Releases" content={newReleases} />
+          <ContentCarousel 
+            title="Top Rated Movies" 
+            content={topRatedMovies.slice(0, 10)} 
+          />
+          <ContentCarousel 
+            title="Popular Series" 
+            content={popularSeries.slice(0, 10)} 
+          />
+          
           <div className="py-12 space-y-6 text-center">
             <h2 className="text-2xl font-bold">Ready to start streaming?</h2>
             <p className="text-muted-foreground max-w-md mx-auto">
