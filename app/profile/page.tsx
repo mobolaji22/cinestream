@@ -347,11 +347,11 @@ function ProfileFormat() {
 export default function ProfilePage() {
   return (
     <div className="flex min-h-screen flex-col">
-      <Navbar />
+      {/* <Navbar /> */}
       <Suspense fallback={<div className="flex-1 flex items-center justify-center">Loading...</div>}>
         <ProfileFormat />
       </Suspense>
-      <Footer />
+      {/* <Footer /> */}
     </div>
   )
 }
