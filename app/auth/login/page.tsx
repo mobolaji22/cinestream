@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/contexts/auth-context"
 import { toast } from "@/hooks/use-toast"
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams.get("redirect") || "/"
@@ -237,3 +237,14 @@ export default function LoginPage() {
   )
 }
 
+export default function LoginPage() {
+  return (
+    <div className="flex min-h-screen flex-col">
+      {/* <Navbar /> */}
+      <Suspense fallback={<div className="flex-1 flex items-center justify-center">Loading...</div>}>
+        <LoginForm />
+      </Suspense>
+      {/* <Footer /> */}
+    </div>
+  )
+}
