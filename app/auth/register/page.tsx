@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { useAuth } from "@/contexts/auth-context"
 import { toast } from "@/hooks/use-toast"
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams.get("redirect") || "/"
@@ -244,3 +244,14 @@ export default function RegisterPage() {
   )
 }
 
+export default function RegisterPage() {
+  return (
+    <div className="flex min-h-screen flex-col">
+      {/* <Navbar /> */}
+      <Suspense fallback={<div className="flex-1 flex items-center justify-center">Loading...</div>}>
+        <RegisterForm />
+      </Suspense>
+      {/* <Footer /> */}
+    </div>
+  )
+}
