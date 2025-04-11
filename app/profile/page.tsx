@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react" // Add useCallback
+import { useState, useEffect, useCallback, Suspense } from "react" // Add useCallback
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -13,7 +13,7 @@ import { getUserWatchlist, getPopularMovies } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
 import { PlusCircle } from "lucide-react"
 
-export default function ProfilePage() {
+function ProfileFormat() {
   const { user, isAuthenticated } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -344,4 +344,14 @@ export default function ProfilePage() {
   )
 }
 
-
+export default function ProfilePage() {
+  return (
+    <div className="flex min-h-screen flex-col">
+      <Navbar />
+      <Suspense fallback={<div className="flex-1 flex items-center justify-center">Loading...</div>}>
+        <ProfileFormat />
+      </Suspense>
+      <Footer />
+    </div>
+  )
+}
